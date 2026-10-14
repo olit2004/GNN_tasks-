@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  gcn-service:
+    build:
+      context: ..
+      dockerfile: task4/Dockerfile
+    container_name: gcn-serving-api
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+    restart: unless-stopped

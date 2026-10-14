@@ -1,0 +1,54 @@
+name: GNN MLOps Pipeline CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test-and-gate:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install torch --index-url https://download.pytorch.org/whl/cpu
+        pip install fastapi uvicorn pydantic requests pytest httpx
+
+    - name: Run Packaging & Failure Handling Tests
+      run: |
+        python task4/tests/test_failure_handling.py
+
+    - name: Run Prediction Consistency Verification
+      run: |
+        python task4/tests/test_prediction_consistency.py
+
+    - name: Run Serving Settings & Graph Context Check
+      run: |
+        python task4/tests/test_serving_settings.py
+
+    - name: Run Drift Detection Test
+      run: |
+        python task4/pipeline/drift_monitor.py
+
+    - name: Automated Promotion Gate Evaluation
+      run: |
+        python -c "
+        from task4.pipeline.registry import ModelRegistry
+        reg = ModelRegistry()
+        prod = reg.get_production_model()
+        assert prod is not None, 'No production model found in registry!'
+        val_acc = prod['metrics']['val_acc']
+        print(f'Active Production Model {prod[\"version\"]} verified with Val Acc {val_acc:.4f}')
+        assert val_acc >= 0.65, f'Production model accuracy {val_acc} below threshold!'
+        "
